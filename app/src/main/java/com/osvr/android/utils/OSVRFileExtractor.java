@@ -29,7 +29,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Enumeration;
+import java.util.Scanner;
 import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -113,7 +115,15 @@ public class OSVRFileExtractor {
                     String curPath = outputFile.getAbsolutePath();
                     if (worldReadable) {
                         do {
-                            runtime.exec("chmod 755 " + curPath);
+                            try {
+                                Process chmodProcess = runtime.exec("chmod 755 " + curPath);
+                                inheritProcessIO(chmodProcess);
+                                chmodProcess.waitFor();
+                            }catch(IOException ex) {
+                                Log.e(LOGTAG, "Error when starting chmod: " + ex.getMessage());
+                            } catch(InterruptedException ex) {
+                                Log.e(LOGTAG, "Error when starting process: " + ex.getMessage());
+                            }
                             curPath = new File(curPath).getParent();
                         } while (!curPath.equals(appRoot));
                     }
@@ -148,5 +158,22 @@ public class OSVRFileExtractor {
             }
         }
         return list;
+    }
+
+    public static void inheritProcessIO(Process process){
+        inheritIO(process.getInputStream(), System.out);
+        inheritIO(process.getErrorStream(), System.err);
+    }
+
+    private static void inheritIO(final InputStream src, final PrintStream dest){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Scanner sc = new Scanner(src);
+                while(sc.hasNextLine()){
+                    dest.println(sc.nextLine());
+                }
+            }
+        });
     }
 }
